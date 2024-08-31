@@ -1,0 +1,51 @@
+# TDV-TP1
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+struct Instancia {
+    int gpusNecesarios;
+    int beneficio;
+};
+
+struct Maquina {
+    int gpusDisponibles;
+};
+
+int beneficioMaximo = 0;
+std::vector<int> mejorAsignacion;
+
+int FB(const std::vector<Instancia>& instancias, std::vector<Maquina>& maquinas, int k, int j, int beneficio) {
+    if (k == instancias.size()) {
+        return beneficio;
+    } else {
+        // No agrego a la instancia k a la maquina j
+        int no_agrego = FB(instancias, maquinas, k, j + 1, beneficio);
+
+        // Verifico si la máquina j tiene suficientes GPUs disponibles
+        if (j < maquinas.size() && maquinas[j].gpusDisponibles >= instancias[k].gpusNecesarios) {
+            // Agrego a la instancia k a la maquina j
+            beneficio += instancias[k].beneficio;
+
+            // Hacemos una copia de las maquinas para no modificar la original y elimino las gpus que se usaron de la Maquina[j]
+            std::vector<Maquina> copiaMaquinas = maquinas;
+            copiaMaquinas[j].gpusDisponibles -= instancias[k].gpusNecesarios;
+
+            int agrego = FB(instancias, copiaMaquinas, k + 1, j + 1, beneficio);
+            return std::max(no_agrego, agrego);
+        } else {
+            return no_agrego;
+        }
+    }
+}
+
+int main() {
+    // Ejemplo de uso
+    std::vector<Instancia> instancias = {{2, 100}, {3, 200}, {1, 50}};
+    std::vector<Maquina> maquinas = {{3}, {4}, {2}};
+
+    int beneficio = FB(instancias, maquinas, 0, 0, 0);
+    std::cout << "Beneficio máximo: " << beneficio << std::endl;
+
+    return 0;
+}
