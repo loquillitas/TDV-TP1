@@ -2,7 +2,6 @@
 #include <list>
 using namespace std;
 
-
 // i =indice de la instacian actual (int)
 //capacidades_de_las_maquinas: lista con las capacidades en cada máquina lis[int] siendo len(capacidades_de_las_maquinas) = #de maquinas
 //Instancia: (beneficio, gpus_usados) lista de tuplas con el beneficio y las gpus necesarias de la instancia actual (list[tuple(int, int)])
@@ -23,9 +22,6 @@ using namespace std;
 
 // si gpus_disponibles <= gpus_usados:
 //   FB(i+1, capacidades_de_las_maquinas - gpus_usados, beneficio_actual + beneficio_i)
-
-
-
 
 struct Estado {
     list<int> capacidades_de_las_maquinas; // Lista con las capacidades en cada máquina
