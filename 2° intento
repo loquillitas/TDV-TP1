@@ -1,0 +1,127 @@
+#include <iostream>
+#include <list>
+using namespace std;
+
+
+// i =indice de la instacian actual (int)
+//capacidades_de_las_maquinas: lista con las capacidades en cada máquina lis[int] siendo len(capacidades_de_las_maquinas) = #de maquinas
+//Instancia: (beneficio, gpus_usados) lista de tuplas con el beneficio y las gpus necesarias de la instancia actual (list[tuple(int, int)])
+//beneficio_actual: beneficio acumulado hasta el momento (int)
+//mejor_beneficio: mejor beneficio encontrado hasta el momento (int)
+
+//FB (i, capacidades_de_las_maquinas, beneficio_actual):
+//    si i == len(Instancia): #caso base donde ta recorrí todas las instancias
+//        si beneficio_actual > mejor_beneficio:
+//            mejor_beneficio = beneficio_actual
+//              return mejor_beneficio
+//    sino:
+// OPCION1: No asignamos la instancia i a ninguna máquina
+//        mejor_beneficio = FB(i+1, capacidades_de_las_maquinas, beneficio_actual)
+
+// OPCION 2: Asignamos la instancia i a alguna máquina si hay capacidad suficiente, es decir, si los gpus_disponibles <= gpus_usados 
+//siendo los (gpus_disponibles = capacidades_de_las_maquinas[j])
+
+// si gpus_disponibles <= gpus_usados:
+//   FB(i+1, capacidades_de_las_maquinas - gpus_usados, beneficio_actual + beneficio_i)
+
+
+
+
+struct Estado {
+    list<int> capacidades_de_las_maquinas; // Lista con las capacidades en cada máquina
+    int beneficio_actual; // Beneficio acumulado hasta el momento
+    int mejor_beneficio; // Mejor beneficio encontrado hasta el momento
+    const list<pair<int, int>>& Instancia; // Lista de tuplas con el beneficio y las GPUs necesarias de la instancia actual
+};
+
+
+void FB(int i, Estado& estado) {
+    if (i == estado.Instancia.size()) { // Caso base: recorrimos todas las instancias
+        if (estado.beneficio_actual > estado.mejor_beneficio) {
+            estado.mejor_beneficio = estado.beneficio_actual;
+        }
+        return;
+    }
+
+    // Opción 1: No asignamos la instancia i a ninguna máquina
+    FB(i + 1, estado);
+
+    // Opción 2: Asignamos la instancia i a alguna máquina si hay capacidad suficiente
+    auto it_instancia = next(estado.Instancia.begin(), i);
+    for (auto it_maquina = estado.capacidades_de_las_maquinas.begin(); it_maquina != estado.capacidades_de_las_maquinas.end(); ++it_maquina) {
+
+        if (*it_maquina >= it_instancia->second) { // Si hay capacidad suficiente) { 
+            *it_maquina -= it_instancia->second; // Resto la capacidad
+            estado.beneficio_actual += it_instancia->first; // Sumo el beneficio
+
+            // cout << "Asignando instancia " << i << " con beneficio " << it_instancia->first << " y GPUs " << it_instancia->second << endl;
+            // cout << "Capacidad restante de la máquina: " << *it_maquina << endl;
+            // cout << "Beneficio actual: " << estado.beneficio_actual << endl;
+
+            FB(i + 1, estado);
+
+            *it_maquina += it_instancia->second; // Restaurar capacidad
+            estado.beneficio_actual -= it_instancia->first; // Restaurar beneficio
+
+            // cout << "Desasignando instancia " << i << " con beneficio " << it_instancia->first << " y GPUs " << it_instancia->second << endl;
+            // cout << "Capacidad restaurada de la máquina: " << *it_maquina << endl;
+            // cout << "Beneficio restaurado: " << estado.beneficio_actual << endl;
+        }
+    }
+}
+
+void BT(int i, Estado& estado) {
+    if (i == estado.Instancia.size()) { // Caso base: recorrimos todas las instancias
+        estado.mejor_beneficio = max(estado.beneficio_actual, estado.mejor_beneficio);
+        return;
+    }
+
+    // Poda por beneficio máximo alcanzable (poda de factibilidad)
+    int beneficio_maximo_posible = estado.beneficio_actual;
+    for (auto it = next(estado.Instancia.begin(), i); it != estado.Instancia.end(); ++it) {
+        beneficio_maximo_posible += it->first;
+    }
+    if (beneficio_maximo_posible <= estado.mejor_beneficio) {
+        return; // Poda
+    }
+
+    // Poda por capacidad insuficiente (poda de optimalidad)
+    int capacidad_total_restante = 0;
+    for (int capacidad : estado.capacidades_de_las_maquinas) {
+        capacidad_total_restante += capacidad;
+    }
+    for (auto it = next(estado.Instancia.begin(), i); it != estado.Instancia.end(); ++it) {
+        if (capacidad_total_restante < it->second) {
+            return; // Poda
+        }
+    }
+
+    // Llamada a la función FB para realizar la asignación de instancias
+    FB(i, estado);
+}
+
+
+
+int main() {
+    // Dos alternativas de máquinas
+    list<int> maquinas1 = {1000, 1000}; // Dos máquinas con 1000 GPU cada una
+    list<int> maquinas2 = {500, 500, 500, 500}; // Cuatro máquinas con 500 GPU cada una
+
+    // Instancias (beneficio, gpus_usados)
+    list<pair<int, int>> Instancia = {
+        {100, 200}, {200, 300}, {300, 400}, {400, 500}, {500, 600}
+    };
+
+    // Evaluar el beneficio máximo para cada alternativa
+    Estado estado1 = {maquinas1, 0, 0, Instancia};
+    Estado estado2 = {maquinas2, 0, 0, Instancia};
+
+    FB(0, estado1);
+    FB(0, estado2);
+
+
+    std::cout << "Mejor beneficio con dos maquinas de 1000 GPU: " << estado1.mejor_beneficio << endl;
+    std::cout << "Mejor beneficio con cuatro máquinas de 500 GPU: " << estado2.mejor_beneficio << endl;
+
+    return 0;
+}
