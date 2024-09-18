@@ -96,6 +96,23 @@ void BT(int i, Estado& estado) {
         return;
     }
 
+    // Crear un iterador y avanzar hasta la posición i
+    auto it = estado.Instancia.begin();
+    advance(it, i);
+
+    // Si GPU necesarios de la instancia i son negativos, paso a la siguiente instancia
+    if (it->second < 0) {
+        BT(i + 1, estado);
+        return;
+    }
+
+    // si las capacidades de las máquinas son negativas, las seteo a 0
+    for (int& capacidad : estado.capacidades_de_las_maquinas) {
+        if (capacidad < 0) {
+            capacidad = 0;
+        }
+    }
+
     // Poda por beneficio máximo alcanzable (poda de factibilidad)
     int beneficio_maximo_posible = estado.beneficio_actual;
     for (auto it = next(estado.Instancia.begin(), i); it != estado.Instancia.end(); ++it) {
