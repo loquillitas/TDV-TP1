@@ -17,6 +17,15 @@ def PD(i, estado, memo):
     if i < 0 or all(c <= 0 for c in estado.capacidades_de_las_maquinas):
         return 0
 
+    # si los gpu necesarios son negativos, paso a la siguiente instancia
+    if estado.Instancia[i][1] < 0:
+        return PD(i - 1, estado, memo)
+        
+    #si alguna maquina tiene capacidad negativa, la seteamos a 0
+    for j in range(len(estado.capacidades_de_las_maquinas)):
+        if estado.capacidades_de_las_maquinas[j] < 0:
+            estado.capacidades_de_las_maquinas[j] = 0
+            
     # Convertimos las capacidades a una tupla para usarla como clave en memo
     c_tuple = tuple(estado.capacidades_de_las_maquinas)
 
