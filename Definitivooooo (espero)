@@ -1,0 +1,518 @@
+#include <iostream>
+#include <list>
+#include <vector>
+#include <fstream>
+#include <map>
+#include <tuple>
+
+using namespace std;
+
+// En BT y FB cuando el beneficio o la capacidad de la instancia son engativos se devuelve como mayor beneficio 0
+// En la salida Asignaciones: 0 significa que no se asignó la instancia a ninguna máquina y los números de las máquinas empiezan en 1. Por ejemplo, 1 significa que se asignó a la máquina 1.
+
+////////////////////////////// PSEUDO CÓDIGO FUERZA BRUTA /////////////////////////////
+
+// i =indice de la instacian actual (int)
+//capacidades_de_las_maquinas: lista con las capacidades en cada máquina lis[int] siendo len(capacidades_de_las_maquinas) = #de maquinas
+//Instancia: (beneficio, gpus_usados) lista de tuplas con el beneficio y las gpus necesarias de la instancia actual (list[tuple(int, int)])
+//beneficio_actual: beneficio acumulado hasta el momento (int)
+//mejor_beneficio: mejor beneficio encontrado hasta el momento (int)
+
+//FB (i, capacidades_de_las_maquinas, beneficio_actual):
+//    si i == len(Instancia): #caso base donde ta recorrí todas las instancias
+//        si beneficio_actual > mejor_beneficio:
+//            mejor_beneficio = beneficio_actual
+//              return mejor_beneficio
+//    sino:
+// OPCION1: No asignamos la instancia i a ninguna máquina
+//        mejor_beneficio = FB(i+1, capacidades_de_las_maquinas, beneficio_actual)
+
+// OPCION 2: Asignamos la instancia i a alguna máquina si hay capacidad suficiente, es decir, si los gpus_disponibles <= gpus_usados 
+//siendo los (gpus_disponibles = capacidades_de_las_maquinas[j])
+
+// si gpus_disponibles <= gpus_usados:
+//   FB(i+1, capacidades_de_las_maquinas - gpus_usados, beneficio_actual + beneficio_i)
+
+
+
+
+struct Estado {
+    list<int> capacidades_de_las_maquinas; // Lista con las capacidades en cada máquina
+    int beneficio_actual =0; // Beneficio acumulado hasta el momento
+    int mejor_beneficio=0; // Mejor beneficio encontrado hasta el momento
+    const list<pair<int, int>>& Instancia; // Lista de tuplas con el beneficio y las GPUs necesarias de la instancia actual
+    vector<int> asignaciones;
+    vector<int> mejor_asignacion;
+
+};
+
+////////////////////////// FUERZA BRUTA ///////////////////////////
+
+
+void FB(int i, Estado& estado) { 
+
+    if (i == estado.Instancia.size()) { // Caso base: recorrimos todas las instancias
+        if (estado.beneficio_actual > estado.mejor_beneficio) {
+            estado.mejor_beneficio = estado.beneficio_actual;
+            estado.mejor_asignacion = estado.asignaciones;
+        }
+        return;
+    }
+
+    // Crear un iterador y avanzar hasta la posición i
+    auto it = estado.Instancia.begin();
+    advance(it, i);
+
+    // Si GPU necesarios de la instancia i son negativos, paso a la siguiente instancia
+    if (it->second < 0) {
+        FB(i + 1, estado);
+        return;
+    }
+
+    // Opción 1: No asignamos la instancia i a ninguna máquina
+    estado.asignaciones[i] = 0;
+    FB(i + 1, estado);
+
+    // Opción 2: Asignamos la instancia i a alguna máquina si hay capacidad suficiente
+    auto it_instancia = next(estado.Instancia.begin(), i);
+    int idx_maquina = 1; // Índice de la máquina (empezando en 1)
+    for (auto it_maquina = estado.capacidades_de_las_maquinas.begin(); it_maquina != estado.capacidades_de_las_maquinas.end(); ++it_maquina, ++idx_maquina) {
+
+        if (*it_maquina >= it_instancia->second) { // Si hay capacidad suficiente en la máquina actual
+            *it_maquina -= it_instancia->second; // Resto la capacidad
+            estado.beneficio_actual += it_instancia->first; // Sumo el beneficio
+            estado.asignaciones[i] = idx_maquina; // Asignamos la instancia a la máquina idx_maquina
+
+            FB(i + 1, estado); 
+
+            *it_maquina += it_instancia->second; // Restaurar capacidad
+            estado.beneficio_actual -= it_instancia->first; // Restaurar beneficio
+            estado.asignaciones[i] = 0; // Restauramos el valor de asignación
+        }
+    }
+}
+
+///////////////BACKTRACKING////////////////////
+
+void BT(int i, Estado& estado) {
+
+    if (i == estado.Instancia.size()) { // Caso base: recorrimos todas las instancias
+        if (estado.beneficio_actual > estado.mejor_beneficio) {
+            estado.mejor_beneficio = estado.beneficio_actual;
+            estado.mejor_asignacion = estado.asignaciones;
+        }
+        return;
+    }
+
+    // Crear un iterador y avanzar hasta la posición i
+    auto it = estado.Instancia.begin();
+    advance(it, i);
+
+    // Si GPU necesarios de la instancia i son negativos, paso a la siguiente instancia
+    if (it->second < 0 || it->first < 0) {
+        BT(i + 1, estado);
+        return;
+    }
+
+    // Poda por beneficio máximo alcanzable (Poda de optimalidad)
+    int beneficio_maximo_posible = estado.beneficio_actual;
+    for (auto it = next(estado.Instancia.begin(), i); it != estado.Instancia.end(); ++it) {
+        for (auto capacidad : estado.capacidades_de_las_maquinas) {
+            if (capacidad >= it->second && it->first > 0) { // Si alguna máquina tiene capacidad suficiente
+                beneficio_maximo_posible += it->first;
+                break;
+            }
+        }
+    }
+
+    if (beneficio_maximo_posible <= estado.mejor_beneficio) {
+        return; // Poda
+    }
+
+    // Poda si ninguna máquina puede alojar la instancia actual, continuar sin asignar (Poda de factibilidad)
+    bool hay_maquina_con_capacidad = false;
+    auto it_instancia = next(estado.Instancia.begin(), i);
+    for (auto capacidad : estado.capacidades_de_las_maquinas) {
+        if (capacidad >= 0 && capacidad >= it_instancia->second) { // Si alguna máquina tiene capacidad suficiente
+            hay_maquina_con_capacidad = true;
+            break;
+        }
+    }
+    if (!hay_maquina_con_capacidad) {
+        BT(i + 1, estado); // Continuar sin asignar la instancia
+        return;
+    }
+
+    // Opción 1: No asignamos la instancia i a ninguna máquina
+    estado.asignaciones[i] = 0;
+    BT(i + 1, estado);
+
+    // Opción 2: Asignamos la instancia i a alguna máquina si hay capacidad suficiente
+    int id_maquina = 1;
+    for (auto it_maquina = estado.capacidades_de_las_maquinas.begin(); it_maquina != estado.capacidades_de_las_maquinas.end(); ++it_maquina, ++id_maquina) {
+        if (*it_maquina >= it_instancia->second && *it_maquina > 0) { // Si hay capacidad suficiente en la máquina actual
+            *it_maquina -= it_instancia->second; // Resto la capacidad de la máquina actual
+            estado.beneficio_actual += it_instancia->first; // Sumo el beneficio
+            estado.asignaciones[i] = id_maquina; // Asignamos la instancia a la máquina
+
+            BT(i + 1, estado);
+
+            *it_maquina += it_instancia->second; // Restaurar capacidad de la máquina actual
+            estado.beneficio_actual -= it_instancia->first; // Restaurar beneficio
+            estado.asignaciones[i] = 0; // Restaurar el valor de asignación
+        }
+    }
+}
+
+
+// Función que verifica si todas las máquinas ya están llenas
+bool todas_maquinas_llenas(const list<int>& capacidades) {
+    for (const auto& c : capacidades) {
+        if (c > 0) {  // Si alguna máquina aún tiene capacidad
+            return false;
+        }
+    }
+    return true;  // Todas las máquinas están llenas
+}
+
+// Función recursiva de programación dinámica con memoización
+int PD(int i, Estado& estado, map<pair<int, list<int>>, int>& memo) {
+    // Caso base: no hay más instancias o no hay más capacidad en todas las máquinas
+    if (i < 0 || todas_maquinas_llenas(estado.capacidades_de_las_maquinas)) {
+        return 0;
+    }
+
+    
+    //Si los gpus necesarios son negativos, no se asigna y pasa a la siguiente instancia
+    auto it = estado.Instancia.begin();
+    advance(it, i);
+    if (it->second < 0 || it->first < 0) {
+        std::cout << "Instancia " << i << " tiene capacidad negativa. Pasando a la siguiente instancia." << std::endl;
+        return PD(i - 1, estado, memo);
+        
+    }
+    // Crear la clave manualmente para memo
+    auto capacidades_tuple = estado.capacidades_de_las_maquinas; //Lo asigna a la lista de capacidades 
+    pair<int, list<int>> key(i, capacidades_tuple);  // Reemplazamos make_pair por la creación directa del par
+
+    // Si ya lo calculamos, lo devolvemos
+    if (memo.find(key) != memo.end()) {
+        return memo[key];
+    }
+
+    // Beneficio de no agregar la instancia (llamada recursiva)
+    int beneficio_no_agrego = PD(i - 1, estado, memo);
+
+    // Variables para guardar el mejor beneficio y la mejor máquina
+    int b_agrego = 0;
+    int mejor_maquina = -1;
+    auto it_instancia = next(estado.Instancia.begin(), i);
+    
+    // Recorremos las máquinas para ver en cuáles podemos agregar la instancia
+    int j = 0;
+    for (auto it_capacidad = estado.capacidades_de_las_maquinas.begin(); it_capacidad != estado.capacidades_de_las_maquinas.end(); ++it_capacidad, ++j) {
+        if (it_instancia->second <= *it_capacidad && *it_capacidad>0) {  // Si la instancia cabe en la máquina j
+            list<int> capacidades_previas = estado.capacidades_de_las_maquinas;
+            *it_capacidad -= it_instancia->second;  // Reducimos la capacidad de la máquina j
+
+            // Llamada recursiva para calcular el beneficio de agregar la instancia a la máquina j
+            int beneficio_con_instancia = it_instancia->first + PD(i - 1, estado, memo);
+
+            // Actualizamos el mejor beneficio si es el más alto
+            if (beneficio_con_instancia >= b_agrego) {
+                mejor_maquina = j;
+                b_agrego = beneficio_con_instancia;
+            }
+
+            // Restauramos las capacidades originales (backtracking)
+            estado.capacidades_de_las_maquinas = capacidades_previas;
+        }
+    }
+
+    // Guardamos el mejor valor en memo
+    memo[key] = max(beneficio_no_agrego, b_agrego);
+
+    // Actualizamos la mejor asignación solo si agregamos la instancia
+    if (b_agrego > beneficio_no_agrego) {
+        estado.mejor_asignacion[i] = mejor_maquina + 1;
+    }
+
+    return memo[key];
+}
+
+//Se le asigna la instancia a cada maquina y en caso de no asignar ninguna se devuelve 0 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// int main() {
+//     // Dos alternativas de máquinas
+//     list<int> maquinas1 = {1000, 1000}; // Dos máquinas con 1000 GPU cada una
+//     //list<int> maquinas2 = {500, 500, 500, 500}; // Cuatro máquinas con 500 GPU cada una
+//     // ejemplo borde: dos maquinas de 1000 GPU, intancias: 500 500, 500 500, 600 500, 400 500, 100 100
+//     // respuesta esperada: m1= 1100 beneficio (500 500, 400 500, 100 100), m2 = 1000 beneficio (600 500, 400 500)
+//     // Instancias (beneficio, gpus_usados)
+//     list<pair<int, int>> Instancia = {
+//       //  {500, 500}, {500, 500}, {600, 500}, {400, 500}, {100, 100}
+//          {100, 100}, {400, 500}, {600, 500}, {500, 500}, {500, 500}
+//     };
+
+// // si el beneficio es 
+    
+//     // Evaluar el beneficio máximo para cada alternativa
+//     Estado estadoFB = {maquinas1, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+//     Estado estadoBT = {maquinas1, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+
+//     FB(0, estadoFB);
+//     BT(0, estadoBT);
+
+//     cout << "Mejor beneficio con FB y dos máquinas de 1000 GPU: " << estadoFB.mejor_beneficio << endl;
+//     cout << "Asignaciones FB: ";
+
+//     cout << "Mejor beneficio con BT y dos máquinas de 1000 GPU: " << estadoBT.mejor_beneficio << endl;
+//     cout << "Asignaciones BT: ";
+
+//     for (int asignacion : estadoFB.mejor_asignacion) {
+//         cout << asignacion << " ";
+//     }
+//     cout << endl;
+
+//     return 0;
+// }
+
+
+//////////////////// PRUEBAS //////////////////////
+
+
+// // Overload the << operator to handle list<int>
+// ostream& operator<<(ostream& os, const list<int>& lst) {
+//     os << "[";
+//     for (auto it = lst.begin(); it != lst.end(); ++it) {
+//         if (it != lst.begin()) {
+//             os << ", ";
+//         }
+//         os << *it;
+//     }
+//     os << "]";
+//     return os;
+// }
+
+// // Overload the << operator to handle list<pair<int, int>>
+// ostream& operator<<(ostream& os, const list<pair<int, int>>& lst) {
+//     os << "[";
+//     for (auto it = lst.begin(); it != lst.end(); ++it) {
+//         if (it != lst.begin()) {
+//             os << ", ";
+//         }
+//         os << "(" << it->first << ", " << it->second << ")";
+//     }
+//     os << "]";
+//     return os;
+// }
+
+// int main() {
+//     // Dos alternativas de máquinas
+//     // list<int> maquinas1 =  {500, 500, 800, 900, 700}; // Dos máquinas con 1000 GPU cada una
+//     list<int> maquinas2 = {322, -966, -849, -773, 454, -838, -904, 30, 535}; // Cuatro máquinas con 500 GPU cada una
+
+//     cout<<"Maquinas: "<<maquinas2<<endl;
+
+
+//     // Instancias (beneficio, gpus_usados)
+//     list<pair<int, int>> Instancia = {
+//         {421, 456}, {-544, -825}, {-421, -378}, {200, 100}
+
+//     };
+//     cout<<"Instancias: "<< Instancia <<endl;
+
+
+//     // Evaluar el beneficio máximo para la alternativa usando FB
+//     // Estado estadoFB1 = {maquinas1, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+//     // FB(0, estadoFB1);
+
+//     Estado estadoFB2 = {maquinas2, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+//     FB(0, estadoFB2);
+
+
+//     // cout << "Mejor beneficio con FB1 y dos máquinas de 1000 GPU: " << estadoFB1.mejor_beneficio << endl;
+//     // cout << "Asignaciones FB1: ";
+
+//     // for (int asignacion : estadoFB1.mejor_asignacion) {
+//     //     cout << asignacion << " ";
+//     // }
+//     // cout << endl;
+
+// /////////////////   FB   ////////////////////////
+
+//     cout << "Mejor beneficio con FB2: " << estadoFB2.mejor_beneficio << endl;
+//     cout << "Asignaciones FB2: ";
+    
+//     for (int asignacion : estadoFB2.mejor_asignacion) {
+//         cout << asignacion << " ";
+//     }
+//     cout << endl;
+
+
+// //////////////////////   BT    //////////////////////////
+
+//     // Evaluar el beneficio máximo para la alternativa usando BT
+//     // Estado estadoBT1 = {maquinas1, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+//     // BT(0, estadoBT1);
+
+//     Estado estadoBT2 = {maquinas2, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+//     BT(0, estadoBT2);
+
+//     // cout << "Mejor beneficio con BT1 y dos máquinas de 1000 GPU: " << estadoBT1.mejor_beneficio << endl;
+//     // cout << "Asignaciones BT1: ";
+//     // for (int asignacion : estadoBT1.mejor_asignacion) {
+//     //     cout << asignacion << " ";
+//     // }
+//     // cout << endl;
+
+//     //////////////////////
+
+    
+//     cout << "Mejor beneficio con BT2: " << estadoBT2.mejor_beneficio << endl;
+//     cout << "Asignaciones BT2: ";
+//     for (int asignacion : estadoBT2.mejor_asignacion) {
+//         cout << asignacion << " ";
+//     }
+//     cout << endl;
+
+
+
+// return 0;
+
+
+// }
+
+
+
+
+
+
+// Overload the << operator to handle list<pair<int, int>>
+// ostream& operator<<(ostream& os, const list<pair<int, int>>& lst) {
+//     os << "[";
+//     for (auto it = lst.begin(); it != lst.end(); ++it) {
+//         if (it != lst.begin()) {
+//             os << ", ";
+//         }
+//         os << "(" << it->first << ", " << it->second << ")";
+//     }
+//     os << "]";
+//     return os;
+// }
+
+
+
+
+
+#include <cstdlib> // Para rand() y srand()
+#include <ctime>   // Para time()
+
+// Overload the << operator to handle list<int>
+ostream& operator<<(ostream& os, const list<int>& lst) {
+    os << "[";
+    for (auto it = lst.begin(); it != lst.end(); ++it) {
+        if (it != lst.begin()) {
+            os << ", ";
+        }
+        os << *it;
+    }
+    os << "]";
+    return os;
+}
+
+// Overload the << operator to handle list<pair<int, int>>
+ostream& operator<<(ostream& os, const list<pair<int, int>>& lst) {
+    os << "[";
+    for (auto it = lst.begin(); it != lst.end(); ++it) {
+        if (it != lst.begin()) {
+            os << ", ";
+        }
+        os << "(" << it->first << ", " << it->second << ")";
+    }
+    os << "]";
+    return os;
+}
+
+int main() {
+    srand(time(0)); // Inicializar la semilla para números aleatorios
+
+    for (int caso = 1; caso <= 10; ++caso) {
+        // Generar máquinas aleatorias
+        list<int> maquinas;
+        int num_maquinas = rand() % 5 + 1; // Hasta 10 máquinas diferentes
+        for (int i = 0; i < num_maquinas; ++i) {
+            int capacidad = rand() % 1101 - 100; // Números entre -100 y 1000
+            maquinas.push_back(capacidad);
+        }
+        cout<<"Maquinas: "<<maquinas<<endl;
+
+        // Generar instancias aleatorias
+        list<pair<int, int>> Instancia;
+        int num_instancias = 5; // 10 instancias diferentes
+        for (int i = 0; i < num_instancias; ++i) {
+            int beneficio = rand() % 1101 - 100; // Números entre -10000 y 10000
+            int gpus_usados = rand() % 1101 - 100; // Números entre -10000 y 10000
+            Instancia.push_back(make_pair(beneficio, gpus_usados));
+        }
+        
+    cout<<"Instancias: "<<Instancia<<endl;
+        // Estado para FB
+        Estado estadoFB = {maquinas, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+        FB(0, estadoFB);
+
+        // Estado para BT
+        Estado estadoBT = {maquinas, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+        BT(0, estadoBT);
+
+        // Estado para PD
+        Estado estadoPD = {maquinas, 0, 0, Instancia, vector<int>(Instancia.size(), 0), vector<int>(Instancia.size(), 0)};
+        map<pair<int, list<int>>, int> memo;
+        int mejor_beneficio_PD = PD(Instancia.size() - 1, estadoPD, memo);
+
+        // Resultados de Fuerza Bruta (FB)
+        cout << "Caso " << caso << ":\n";
+        cout << "Mejor beneficio con FB: " << estadoFB.mejor_beneficio << endl;
+        cout << "Asignaciones FB: ";
+        for (int asignacion : estadoFB.mejor_asignacion) {
+            cout << asignacion << " ";
+        }
+        cout << endl;
+
+        // Resultados de Backtracking (BT)
+        cout << "Mejor beneficio con BT: " << estadoBT.mejor_beneficio << endl;
+        cout << "Asignaciones BT: ";
+        for (int asignacion : estadoBT.mejor_asignacion) {
+            cout << asignacion << " ";
+        }
+        cout << endl;
+
+        // Resultados de Programación Dinámica (PD)
+        cout << "Mejor beneficio con PD: " << mejor_beneficio_PD << endl;
+        cout << "Asignaciones PD: ";
+        for (int asignacion : estadoPD.mejor_asignacion) {
+            cout << asignacion << " ";
+        }
+        cout << endl;
+    }
+
+    return 0;
+}
