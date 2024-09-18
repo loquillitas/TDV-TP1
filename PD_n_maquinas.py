@@ -21,10 +21,6 @@ def PD(i, estado, memo):
     if estado.Instancia[i][1] < 0:
         return PD(i - 1, estado, memo)
         
-    #si alguna maquina tiene capacidad negativa, la seteamos a 0
-    for j in range(len(estado.capacidades_de_las_maquinas)):
-        if estado.capacidades_de_las_maquinas[j] < 0:
-            estado.capacidades_de_las_maquinas[j] = 0
             
     # Convertimos las capacidades a una tupla para usarla como clave en memo
     c_tuple = tuple(estado.capacidades_de_las_maquinas)
@@ -44,7 +40,7 @@ def PD(i, estado, memo):
         # para la i-esima instancia, vamos a recorrer todas las maquinas y nos quedamos con la que nos de mayor beneficio
 
         # Si la instancia cabe en la máquina `j`, verificamos la capacidad disponible
-        if estado.Instancia[i][1] <= estado.capacidades_de_las_maquinas[j]:
+        if estado.Instancia[i][1] <= estado.capacidades_de_las_maquinas[j] and estado.capacidades_de_las_maquinas[j] > 0:
 
             # Guardamos temporalmente las capacidades actuales
             capacidades_previas = list(estado.capacidades_de_las_maquinas)
