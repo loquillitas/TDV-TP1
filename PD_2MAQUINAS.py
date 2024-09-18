@@ -15,6 +15,16 @@ def PD(i, c1, c2, estado, memo):
     if i < 0 or (c1 <= 0 and c2 <= 0):
         return 0
 
+    # si los gpu necesarios son negativos, paso a la siguiente instancia
+    if estado.Instancia[i][1] < 0:
+        return PD(i - 1, c1, c2, estado, memo)
+        
+    # si alguna maquina tiene capacidad negativa, la seteamos a 0
+    if c1 < 0:
+        c1 = 0
+    if c2 < 0:
+        c2 = 0
+        
     # Si ya calculamos el valor, lo retornamos
     if memo[i][c1][c2] != -1:    #     elif i != 0 and c1 > 0 and c2 > 0 and memo[i][c1][c2] != -1:
         return memo[i][c1][c2]
